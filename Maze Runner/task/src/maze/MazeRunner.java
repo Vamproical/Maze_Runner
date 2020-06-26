@@ -1,5 +1,10 @@
 package maze;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class MazeRunner {
@@ -7,13 +12,24 @@ public class MazeRunner {
     private final int height;
     private final Cell[][] cells;
 
-    public MazeRunner(int width, int height) {
+
+    public MazeRunner(int width, boolean isValid) {
         this.width = width;
-        this.height = height;
-        this.cells = new Cell[height][width];
+        this.height = width;
+        this.cells = new Cell[width][height];
         for (Cell[] row : cells) {
             Arrays.fill(row, Cell.WALL);
         }
+        if (isValid) {
+            generateMaze();
+            pierce();
+        }
+    }
+
+    public MazeRunner(int height, int width, Cell[][] grid) {
+        this.width = width;
+        this.height = height;
+        this.cells = grid;
     }
 
     private void generateMaze() {
@@ -78,7 +94,7 @@ public class MazeRunner {
 
     private void pierce() {
         int x = -1;
-        int y = height / 2;
+        int y = width / 2;
 
         do {
             x++;
@@ -86,7 +102,7 @@ public class MazeRunner {
         } while (cells[y + 1][x] != Cell.PASS && cells[y - 1][x] != Cell.PASS && cells[y][x + 1] != Cell.PASS);
 
         x = width;
-        y = height / 2;
+        y = width / 2;
 
         do {
             x--;
@@ -96,25 +112,68 @@ public class MazeRunner {
 
     @Override
     public String toString() {
-        StringJoiner rowJoiner = new StringJoiner(System.lineSeparator());
-
+        StringBuilder stringBuilder = new StringBuilder();
         for (Cell[] row : cells) {
-            StringJoiner joiner = new StringJoiner("");
-
             for (Cell cell : row) {
-                joiner.add(cell == Cell.PASS ? "  " : "\u2588\u2588");
+                stringBuilder.append(cell == Cell.PASS ? "  " : "\u2588\u2588");
             }
-
-            rowJoiner.merge(joiner);
+            stringBuilder.append("\n");
         }
-
-        return rowJoiner.toString();
+        return stringBuilder.toString();
     }
 
-    public void init() {
-        generateMaze();
-        pierce();
-        System.out.println(toString());
+    private static MazeRunner read(String str) {
+        try {
+            String[] whole = str.split("\n");
+            String[] size = whole[0].split("");
+            int height = size.length / 2;
+            int width = size.length / 2;
+            Cell[][] grid = new Cell[height][width];
+            for (int i = 0; i < height; i++) {
+                var row = whole[i].split("");
+                int k = 0;
+                for (int j = 0; j < 2 * width; j += 2) {
+                    if (row[j].equals("█")) {
+                        grid[i][k] = Cell.WALL;
+                    } else {
+                        grid[i][k] = Cell.PASS;
+                    }
+                    ++k;
+                }
+            }
+            return new MazeRunner(height, width, grid);
+        } catch (Exception e) {
+            System.out.println(
+                    "Cannot load the maze. " +
+                            "It has an invalid format" + " " + e.getMessage()
+            );
+            return new MazeRunner(0, false);
+        }
+    }
+
+    public static MazeRunner readFromFile(String path) {
+        try {
+            String content = Files.readString(Paths.get(path));
+            return read(content);
+        } catch (IOException e) {
+            System.out.println("The file " + path + " does not exist");
+            return new MazeRunner(0, false);
+        }
+    }
+
+    public void writeToFile(String path) {
+        File file = new File(path);
+
+        try (PrintWriter printWriter = new PrintWriter(file)) {
+            for (Cell[] row : cells) {
+                for (Cell cell : row) {
+                    printWriter.print(cell == Cell.PASS ? "  " : "\u2588\u2588");
+                }
+                printWriter.println("");
+            }
+        } catch (IOException e) {
+            System.out.printf("An exception occurs %s", e.getMessage());
+        }
     }
 
     enum Cell {
